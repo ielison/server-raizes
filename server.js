@@ -118,9 +118,7 @@ app.get("/api/login", async (req, res) => {
     return res.status(400).json({ error: "Email e senha são obrigatórios." });
   }
 
-  const apiUrl = `${process.env.API_URL}/login?email=${encodeURIComponent(
-    email
-  )}&senha=${encodeURIComponent(senha)}`;
+  const apiUrl = `${process.env.API_URL}/login?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -139,9 +137,7 @@ app.get("/api/login", async (req, res) => {
     return res.status(response.status).json({ error: errorMessage });
   } catch (error) {
     console.error("Erro ao fazer requisição para a API:", error);
-    return res
-      .status(500)
-      .json({ error: "Erro ao fazer requisição para a API" });
+    return res.status(500).json({ error: "Erro ao fazer requisição para a API" });
   }
 });
 
