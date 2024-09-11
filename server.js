@@ -3,7 +3,12 @@ import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
-const port = process.env.PORT || 3000; // Usa a porta definida pelo Vercel
+const port = process.env.PORT || 10000; 
+
+
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
+})
 
 // Middleware para interpretar JSON
 app.use(express.json());
