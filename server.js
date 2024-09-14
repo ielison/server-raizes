@@ -3,12 +3,11 @@ import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
-const port = process.env.PORT || 10000; 
-
+const port = process.env.PORT || 10000;
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+  console.log(`Example app listening on port ${port}`);
+});
 
 // Middleware para interpretar JSON
 app.use(express.json());
@@ -118,7 +117,9 @@ app.get("/api/login", async (req, res) => {
     return res.status(400).json({ error: "Email e senha são obrigatórios." });
   }
 
-  const apiUrl = `${process.env.API_URL}/login?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`;
+  const apiUrl = `${process.env.API_URL}/login?email=${encodeURIComponent(
+    email
+  )}&senha=${encodeURIComponent(senha)}`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -126,18 +127,29 @@ app.get("/api/login", async (req, res) => {
       headers: { "Content-Type": "application/json" },
     });
 
-    if (response.status === 200) {
-      const data = await response.json();
+    const data = await response.json();
+
+    // Verifica se o login foi bem-sucedido
+    if (data.result === true) {
       console.log("Login bem-sucedido:", data);
-      return res.status(200).json(data);
+      return res.status(200).json({
+        success: true,
+        message: "Login realizado com sucesso",
+        idUser: data.idUser,
+      });
     }
 
-    const errorMessage = await response.text();
-    console.error("Erro no login:", response.status, errorMessage);
-    return res.status(response.status).json({ error: errorMessage });
+    // Caso o login não tenha sucesso
+    console.error("Erro no login: result é falso.");
+    return res.status(401).json({
+      success: false,
+      message: "Email ou senha incorretos",
+    });
   } catch (error) {
     console.error("Erro ao fazer requisição para a API:", error);
-    return res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+    return res
+      .status(500)
+      .json({ error: "Erro ao fazer requisição para a API" });
   }
 });
 
