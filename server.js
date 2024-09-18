@@ -44,14 +44,6 @@ app.post("/api/register", async (req, res) => {
       "nome",
       "email",
       "senha",
-      "cep",
-      "pais",
-      "cidade",
-      "rua",
-      "numeroRua",
-      "telefone",
-      "celular",
-      "graduacao",
     ];
 
     for (const field of requiredFields) {
