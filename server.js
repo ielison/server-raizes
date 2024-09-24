@@ -25,6 +25,35 @@ app.get("/teste", (req, res) => {
   res.send("Bem-vindo ao servidor de API");
 });
 
+// Função para fazer o ping
+const pingServer = () => {
+  const pingUrl = "https://testserver-2p40.onrender.com/teste"; // URL correto para o ping
+
+  fetch(pingUrl)
+    .then((res) => {
+      if (res.ok) {
+        console.log("Ping bem-sucedido ao servidor.");
+      } else {
+        console.log("Erro no ping ao servidor:", res.status);
+      }
+    })
+    .catch((error) => {
+      console.error("Erro ao fazer o ping:", error);
+    });
+};
+
+// Iniciar o ping a cada 30 minutos (1800000 ms)
+setInterval(pingServer, 1800000);
+
+// Iniciar o servidor
+app.listen(port, () => {
+  console.log(`Servidor rodando em http://localhost:${port}`);
+
+  // Fazer um ping inicial ao iniciar o servidor
+  pingServer();
+});
+
+
 // Endpoint para registro de usuário
 app.post("/api/register", async (req, res) => {
   console.log("Dados recebidos:", req.body);
