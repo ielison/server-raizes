@@ -5,7 +5,6 @@ import cors from "cors";
 const app = express();
 const port = process.env.PORT || 10000;
 
-
 // Middleware para interpretar JSON
 app.use(express.json());
 
@@ -46,14 +45,8 @@ const pingServer = () => {
 // Iniciar o ping a cada 30 minutos (1800000 ms)
 setInterval(pingServer, 1800000);
 
-// Iniciar o servidor
-app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
-
-  // Fazer um ping inicial ao iniciar o servidor
-  pingServer();
-});
-
+// Fazer um ping inicial ao iniciar o servidor
+pingServer();
 
 // Endpoint para registro de usuário
 app.post("/api/register", async (req, res) => {
@@ -163,7 +156,6 @@ app.get("/api/login", async (req, res) => {
     return res.status(500).json({ error: "Erro ao fazer requisição para a API" });
   }
 });
-
 
 // Iniciar o servidor
 app.listen(port, () => {
