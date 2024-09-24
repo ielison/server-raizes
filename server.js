@@ -1,24 +1,17 @@
 import express from "express";
-import fetch from "node-fetch";
+import fetch from "node-fetch"; // Import ESM
 import cors from "cors";
 
 const app = express();
-const port = process.env.PORT || 10000;
-
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
-});
+const port = 3000;
 
 // Middleware para interpretar JSON
 app.use(express.json());
 
 // Configuração do CORS
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",")
-  : [];
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: ["http://localhost:5173", "https://raizesfront.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
     credentials: true,
@@ -26,9 +19,8 @@ app.use(
 );
 
 // Permitir requisições OPTIONS
-app.options("*", cors());
+app.options("*", cors()); // Adicione esta linha
 
-// Teste para verificar se o servidor está funcionando
 app.get("/teste", (req, res) => {
   res.send("Bem-vindo ao servidor de API");
 });
@@ -40,6 +32,7 @@ app.post("/api/register", async (req, res) => {
   const apiUrl = "http://217.196.61.218:8080/v1/user/save-user";
 
   try {
+    // Validação simples dos campos obrigatórios
     const requiredFields = [
       "nome",
       "email",
@@ -52,8 +45,9 @@ app.post("/api/register", async (req, res) => {
       }
     }
 
+    // Preparando o payload a ser enviado à API
     const payload = {
-      usuarioId: req.body.usuarioId || 0,
+      usuarioId: req.body.usuarioId || 0, // Supondo que 0 seja o padrão
       nome: req.body.nome,
       email: req.body.email,
       senha: req.body.senha,
@@ -64,9 +58,9 @@ app.post("/api/register", async (req, res) => {
       numeroRua: req.body.numeroRua,
       telefone: req.body.telefone,
       celular: req.body.celular,
-      profissionalDaSaude: Boolean(req.body.profissionalDaSaude),
-      graduacao: req.body.graduacao || "",
-      receberEmail: Boolean(req.body.receberEmail),
+      profissionalDaSaude: Boolean(req.body.profissionalDaSaude), // Garantir que seja booleano
+      graduacao: req.body.graduacao || "", // Evitar null
+      receberEmail: Boolean(req.body.receberEmail), // Garantir que seja booleano
     };
 
     console.log(
@@ -81,7 +75,7 @@ app.post("/api/register", async (req, res) => {
     });
 
     if (response.status === 204) {
-      return res.sendStatus(204);
+      return res.sendStatus(204); // Sucesso sem conteúdo
     }
 
     let data;
@@ -103,35 +97,32 @@ app.post("/api/register", async (req, res) => {
 
 // Endpoint para login de usuário
 app.get("/api/login", async (req, res) => {
-  const { email, senha } = req.query;
+  const { email, senha } = req.query; // Obtemos os dados via query
 
   if (!email || !senha) {
     return res.status(400).json({ error: "Email e senha são obrigatórios." });
   }
 
-  const apiUrl = `${process.env.API_URL}/login?email=${encodeURIComponent(
-    email
-  )}&senha=${encodeURIComponent(senha)}`;
+  const apiUrl = `http://217.196.61.218:8080/v1/user/login?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`;
 
   try {
     const response = await fetch(apiUrl, {
-      method: "GET",
+      method: "GET", // Continua usando o método GET
       headers: { "Content-Type": "application/json" },
     });
 
     const data = await response.json();
 
-    // Verifica se o login foi bem-sucedido
-    if (data.result === true) {
+    if (response.status === 200 && data.result === true) {
       console.log("Login bem-sucedido:", data);
       return res.status(200).json({
         success: true,
         message: "Login realizado com sucesso",
         idUser: data.idUser,
+        nome: data.nome,
       });
     }
 
-    // Caso o login não tenha sucesso
     console.error("Erro no login: result é falso.");
     return res.status(401).json({
       success: false,
@@ -139,11 +130,12 @@ app.get("/api/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Erro ao fazer requisição para a API:", error);
-    return res
-      .status(500)
-      .json({ error: "Erro ao fazer requisição para a API" });
+    return res.status(500).json({ error: "Erro ao fazer requisição para a API" });
   }
 });
 
-// Exportar a aplicação para Vercel
-export default app;
+
+// Iniciar o servidor
+app.listen(port, () => {
+  console.log(`Servidor rodando em http://localhost:${port}`);
+});
