@@ -5,7 +5,7 @@ import cors from "cors";
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Middleware para interpretar JSON
+/ Middleware para interpretar JSON
 app.use(express.json());
 
 // Configuração do CORS
@@ -156,6 +156,139 @@ app.get("/api/login", async (req, res) => {
     return res.status(500).json({ error: "Erro ao fazer requisição para a API" });
   }
 });
+
+
+// Endpoint para enviar dados do quiz
+app.post("/api/quiz", async (req, res) => {
+  console.log("Dados do quiz recebidos:", req.body);
+
+  const apiUrl = "http://217.196.61.218:8080/v1/quiz"; // Endpoint do backend
+
+  try {
+    // Validação simples dos campos obrigatórios, se necessário
+    const requiredFields = ["idUser", "idQuiz", "usuariPrincipal"];
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        return res.status(400).json({ error: `Campo ${field} é obrigatório.` });
+      }
+    }
+
+    // Preparando o payload a ser enviado ao backend
+    const payload = {
+      idUser: req.body.idUser,
+      idQuiz: req.body.idQuiz,
+      usuariPrincipal: req.body.usuariPrincipal,
+      mae: req.body.mae,
+      pai: req.body.pai,
+      filhosList: req.body.filhosList,
+      netosList: req.body.netosList,
+      irmaosList: req.body.irmaosList,
+      sobrinhosList: req.body.sobrinhosList,
+      tiosList: req.body.tiosList,
+      avosList: req.body.avosList,
+      primosList: req.body.primosList,
+      outroFamiliarList: req.body.outroFamiliarList,
+    };
+
+    console.log("Payload enviado para a API:", JSON.stringify(payload, null, 2));
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.status === 204) {
+      return res.sendStatus(204); // Sucesso sem conteúdo
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error("Erro ao parsear a resposta JSON:", jsonError);
+      data = { message: "Erro ao processar a resposta da API" };
+    }
+
+    console.log("Response status:", response.status);
+    console.log("Response body:", await response.text());
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error("Erro ao fazer requisição para a API:", error);
+    res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+  }
+});
+
+// GET para /api/quiz (retorna true se a resposta for 200 OK)
+app.get("/api/quiz", async (req, res) => {
+  const apiUrl = "http://217.196.61.218:8080/v1/quiz";
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.status === 200) {
+      return res.status(200).json(true); // Retorna true se for 200 OK
+    } else {
+      res.status(response.status).json(false); // Retorna false se não for 200
+    }
+  } catch (error) {
+    console.error("Erro ao fazer requisição para a API:", error);
+    res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+  }
+});
+
+// GET para buscar pacientes por idUser
+app.get("/api/quiz/getPacientes/:idUser", async (req, res) => {
+  const { idUser } = req.params; // Pega o idUser dos parâmetros da rota
+  const apiUrl = `http://217.196.61.218:8080/v1/quiz/getPacientes/${idUser}`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.status === 200) {
+      const pacientes = await response.json(); // Aguarda a resposta e converte para JSON
+      return res.status(200).json(pacientes); // Retorna a lista de pacientes no formato esperado
+    } else {
+      res.status(response.status).json({
+        error: `Erro ao buscar pacientes: ${response.statusText}`,
+      });
+    }
+  } catch (error) {
+    console.error("Erro ao fazer requisição para a API:", error);
+    res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+  }
+});
+
+// Endpoint para obter os dados do quiz pelo idQuiz
+app.get("/api/quiz/:idQuiz", async (req, res) => {
+  const { idQuiz } = req.params;
+  const apiUrl = `http://217.196.61.218:8080/v1/quiz/getQuiz/${idQuiz}`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.status === 200) {
+      const data = await response.json(); // Obtenção dos dados se a resposta for 200 OK
+      console.log("Dados do quiz recebidos:", JSON.stringify(data, null, 2));
+      return res.status(200).json(data); // Retorna os dados do quiz
+    } else {
+      res.status(response.status).json({ error: "Quiz não encontrado" });
+    }
+  } catch (error) {
+    console.error("Erro ao fazer requisição para a API:", error);
+    res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+  }
+});
+
 
 // Iniciar o servidor
 app.listen(port, () => {
