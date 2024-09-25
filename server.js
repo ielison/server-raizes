@@ -1,7 +1,7 @@
 import express from "express";
 import fetch from "node-fetch"; // Import ESM
 import cors from "cors";
-import generatePDF from './pdfGenerator.js'; // Importa o gerador de PDF
+import { generatePDF } from "./pdfGenerator.js";
 
 const app = express();
 const port = process.env.PORT || 10000;
