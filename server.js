@@ -198,8 +198,8 @@ app.post("/api/quiz", async (req, res) => {
       body: JSON.stringify(payload),
     });
 
-    if (response.status === 204) {
-      return res.sendStatus(204); // Sucesso sem conteúdo
+    if (response.status === 200) {
+      return res.sendStatus(200); // Sucesso sem conteúdo
     }
 
     let data;
