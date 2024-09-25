@@ -1,6 +1,7 @@
 import express from "express";
 import fetch from "node-fetch"; // Import ESM
 import cors from "cors";
+import generatePDF from '/pdfGenerator.js'; // Importa o gerador de PDF
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -288,6 +289,18 @@ app.get("/api/quiz/:idQuiz", async (req, res) => {
     res.status(500).json({ error: "Erro ao fazer requisição para a API" });
   }
 });
+
+// Novo endpoint para geração de PDF
+app.post("/generatepdf", (req, res) => {
+  const { nome, idade, historicoPessoal, familiares } = req.body;
+  
+  if (!nome || !idade || !historicoPessoal || !familiares) {
+    return res.status(400).json({ error: 'Dados incompletos.' });
+  }
+
+  generatePDF(req.body, res); // Gera o PDF usando o gerador
+});
+
 
 
 // Iniciar o servidor
