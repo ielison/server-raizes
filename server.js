@@ -5,7 +5,7 @@ import cors from "cors";
 const app = express();
 const port = process.env.PORT || 10000;
 
-/ Middleware para interpretar JSON
+// Middleware para interpretar JSON
 app.use(express.json());
 
 // Configuração do CORS
