@@ -57,11 +57,7 @@ app.post("/api/register", async (req, res) => {
 
   try {
     // Validação simples dos campos obrigatórios
-    const requiredFields = [
-      "nome",
-      "email",
-      "senha",
-    ];
+    const requiredFields = ["nome", "email", "senha"];
 
     for (const field of requiredFields) {
       if (!req.body[field]) {
@@ -127,7 +123,9 @@ app.get("/api/login", async (req, res) => {
     return res.status(400).json({ error: "Email e senha são obrigatórios." });
   }
 
-  const apiUrl = `http://217.196.61.218:8080/v1/user/login?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`;
+  const apiUrl = `http://217.196.61.218:8080/v1/user/login?email=${encodeURIComponent(
+    email
+  )}&senha=${encodeURIComponent(senha)}`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -154,10 +152,11 @@ app.get("/api/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Erro ao fazer requisição para a API:", error);
-    return res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+    return res
+      .status(500)
+      .json({ error: "Erro ao fazer requisição para a API" });
   }
 });
-
 
 // Endpoint para enviar dados do quiz
 app.post("/api/quiz", async (req, res) => {
@@ -191,7 +190,10 @@ app.post("/api/quiz", async (req, res) => {
       outroFamiliarList: req.body.outroFamiliarList,
     };
 
-    console.log("Payload enviado para a API:", JSON.stringify(payload, null, 2));
+    console.log(
+      "Payload enviado para a API:",
+      JSON.stringify(payload, null, 2)
+    );
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -199,21 +201,18 @@ app.post("/api/quiz", async (req, res) => {
       body: JSON.stringify(payload),
     });
 
+    // Verificando se a resposta é 200
     if (response.status === 200) {
-      return res.sendStatus(200); // Sucesso sem conteúdo
+      const responseBody = await response.text(); // Captura o texto da resposta
+      if (responseBody === "CRIADO COM SUCESSO") {
+        return res.status(200).json({ message: responseBody }); // Sucesso com mensagem
+      }
     }
 
-    let data;
-    try {
-      data = await response.json();
-    } catch (jsonError) {
-      console.error("Erro ao parsear a resposta JSON:", jsonError);
-      data = { message: "Erro ao processar a resposta da API" };
-    }
-
-    console.log("Response status:", response.status);
-    console.log("Response body:", await response.text());
-    res.status(response.status).json(data);
+    // Se a resposta não for 200 ou não tiver a mensagem esperada
+    const errorData = await response.text();
+    console.log("Erro ou resposta inesperada da API:", errorData);
+    return res.status(response.status).json({ error: errorData });
   } catch (error) {
     console.error("Erro ao fazer requisição para a API:", error);
     res.status(500).json({ error: "Erro ao fazer requisição para a API" });
@@ -290,20 +289,46 @@ app.get("/api/quiz/:idQuiz", async (req, res) => {
   }
 });
 
+// Endpoint para obter o resultado do quiz pelo idQuiz e idUser
+app.get("/api/quiz/resultado/:idQuiz/:idUser", async (req, res) => {
+  const { idQuiz, idUser } = req.params;
+  const apiUrl = `http://217.196.61.218:8080/v1/quiz/resultado/${idQuiz}/${idUser}`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.status === 200) {
+      const result = await response.json(); // Aguarda a resposta e converte para JSON
+      console.log("Resultado do quiz recebido:", JSON.stringify(result, null, 2));
+      return res.status(200).json(result); // Retorna o resultado do quiz
+    } else {
+      res.status(response.status).json({
+        error: `Erro ao buscar resultado do quiz: ${response.statusText}`,
+      });
+    }
+  } catch (error) {
+    console.error("Erro ao fazer requisição para a API:", error);
+    res.status(500).json({ error: "Erro ao fazer requisição para a API" });
+  }
+});
+
+
 // Novo endpoint para geração de PDF
 app.post("/generatepdf", (req, res) => {
   const { nome, idade, historicoPessoal, familiares } = req.body;
-  
+
   if (!nome || !idade || !historicoPessoal || !familiares) {
-    return res.status(400).json({ error: 'Dados incompletos.' });
+    return res.status(400).json({ error: "Dados incompletos." });
   }
 
   generatePDF(req.body, res); // Gera o PDF usando o gerador
 });
 
-
-
 // Iniciar o servidor
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });
+
