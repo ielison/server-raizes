@@ -4,7 +4,7 @@ import cors from "cors";
 import { generatePDF } from "./pdfGenerator.js";
 
 const app = express();
-const port = process.env.PORT || 10000;
+const port = 3000;
 
 // Middleware para interpretar JSON
 app.use(express.json());
@@ -302,7 +302,10 @@ app.get("/api/quiz/resultado/:idQuiz/:idUser", async (req, res) => {
 
     if (response.status === 200) {
       const result = await response.json(); // Aguarda a resposta e converte para JSON
-      console.log("Resultado do quiz recebido:", JSON.stringify(result, null, 2));
+      console.log(
+        "Resultado do quiz recebido:",
+        JSON.stringify(result, null, 2)
+      );
       return res.status(200).json(result); // Retorna o resultado do quiz
     } else {
       res.status(response.status).json({
@@ -315,10 +318,16 @@ app.get("/api/quiz/resultado/:idQuiz/:idUser", async (req, res) => {
   }
 });
 
-
 // Novo endpoint para geração de PDF
 app.post("/generatepdf", (req, res) => {
-  const { nome, idade, historicoPessoal, familiares } = req.body;
+  console.log("requisição feita");
+  const {
+    nome,
+    idade,
+    historicoPessoal,
+    familiares,
+    precisaPesquisaOncogenetica,
+  } = req.body;
 
   if (!nome || !idade || !historicoPessoal || !familiares) {
     return res.status(400).json({ error: "Dados incompletos." });
@@ -331,4 +340,3 @@ app.post("/generatepdf", (req, res) => {
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });
-
