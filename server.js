@@ -201,16 +201,22 @@ app.post("/api/quiz", async (req, res) => {
       body: JSON.stringify(payload),
     });
 
-    // Verificando se a resposta é 200
-    if (response.status === 200) {
-      const responseBody = await response.text(); // Captura o texto da resposta
-      if (responseBody === "CRIADO COM SUCESSO") {
-        return res.status(200).json({ message: responseBody }); // Sucesso com mensagem
+    // Verificando se a resposta é 200 ou 201 (Created)
+    if (response.status === 200 || response.status === 201) {
+      const responseBody = await response.json(); // Captura a resposta como JSON
+      console.log("Resposta da API:", responseBody);
+
+      // Verifica a mensagem de sucesso
+      if (responseBody.message === "CRIADO COM SUCESSO") {
+        return res.status(200).json({ message: responseBody.message }); // Sucesso
       }
+
+      // Se a mensagem não for a esperada, retorna um erro
+      return res.status(200).json(responseBody);
     }
 
-    // Se a resposta não for 200 ou não tiver a mensagem esperada
-    const errorData = await response.text();
+    // Se a resposta não for 200 ou 201
+    const errorData = await response.text(); // Captura qualquer erro como texto
     console.log("Erro ou resposta inesperada da API:", errorData);
     return res.status(response.status).json({ error: errorData });
   } catch (error) {
