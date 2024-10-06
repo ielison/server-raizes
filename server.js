@@ -12,7 +12,7 @@ app.use(express.json());
 // Configuração do CORS
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://raizesfront.vercel.app", "'https://raizeshistoriafamiliar.vercel.app"],
+    origin: ["http://localhost:5173", "https://raizesfront.vercel.app", "https://raizeshistoriafamiliar.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
     credentials: true,
