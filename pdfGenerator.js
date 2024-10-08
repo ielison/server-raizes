@@ -46,14 +46,18 @@ export const generatePDF = (data, res) => {
     );
 
   doc.moveDown();
-  doc.text("Reporta os seguintes familiares com câncer:");
+  if (familiares && familiares.length > 0) {
+    doc.text("Reporta os seguintes familiares com câncer:");
 
-  familiares.forEach((familiar) => {
-    doc.moveDown();
-    doc.text(
-      `- ${familiar.grau}: ${familiar.tipoCancer}, aos ${familiar.idadeDiagnostico} anos.`
-    );
-  });
+    familiares.forEach((familiar) => {
+      doc.moveDown();
+      doc.text(
+        `- ${familiar.grau}: ${familiar.tipoCancer}, aos ${familiar.idadeDiagnostico} anos.`
+      );
+    });
+  } else {
+    doc.text("Não reporta familiares com câncer.");
+  }
 
   doc.moveDown();
   if (precisaPesquisaOncogenetica) {
