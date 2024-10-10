@@ -105,7 +105,7 @@ export const generatePDF = (data, res) => {
       .text("o paciente atende ", { continued: true })
       .font("Inter")
       .text("aos critérios internacionalmente reconhecidos (NCCN e ACMG), indicando que ele se beneficiaria de um encaminhamento para investigação em um serviço especializado em oncogenética.", {
-        align: "justify",
+        align: "left",
       });
   } else {
     doc
@@ -115,7 +115,7 @@ export const generatePDF = (data, res) => {
       .text("o paciente não atende ", { continued: true })
       .font("Inter")
       .text("aos critérios internacionalmente reconhecidos (NCCN e ACMG) para um encaminhamento para investigação em um serviço especializado em oncogenética.", {
-        align: "justify",
+        align: "left",
       });
   }
 
