@@ -62,7 +62,7 @@ export const generatePDF = (data, res) => {
 
   doc.moveDown();
   doc
-    .fontSize(12)
+    .fontSize(14)
     .text(
       `Sr(a). ${nome} possui história pessoal de ${historicoPessoal}, hoje com ${idade} anos.`
     );
