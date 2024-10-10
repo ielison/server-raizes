@@ -102,8 +102,9 @@ export const generatePDF = (data, res) => {
       .font("Inter-Bold")
       .text("Com base nessas informações, o paciente atende", { continued: true })
       .font("Inter")
+      .text(" aos critérios", { continued: true })
       .text(
-        " aos critérios internacionalmente reconhecidos (NCCN e ACMG), indicando que ele se beneficiaria de um encaminhamento para investigação em um serviço especializado em oncogenética.",
+        " internacionalmente reconhecidos (NCCN e ACMG), indicando que ele se beneficiaria de um encaminhamento para investigação em um serviço especializado em oncogenética.",
         {
           align: "justify",
         }
@@ -113,8 +114,9 @@ export const generatePDF = (data, res) => {
       .font("Inter-Bold")
       .text("Com base nessas informações, o paciente não atende", { continued: true })
       .font("Inter")
+      .text(" aos critérios", { continued: true })
       .text(
-        " aos critérios internacionalmente reconhecidos (NCCN e ACMG) para um encaminhamento para investigação em um serviço especializado em oncogenética.",
+        " internacionalmente reconhecidos (NCCN e ACMG) para um encaminhamento para investigação em um serviço especializado em oncogenética.",
         {
           align: "justify",
         }
