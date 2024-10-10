@@ -102,9 +102,9 @@ export const generatePDF = (data, res) => {
       .font("Inter")
       .text("Com base nessas informações, ", { continued: true })
       .font("Inter-Bold")
-      .text("o paciente atende", { continued: true })
+      .text("o paciente atende ", { continued: true })
       .font("Inter")
-      .text(" aos critérios internacionalmente reconhecidos (NCCN e ACMG), indicando que ele se beneficiaria de um encaminhamento para investigação em um serviço especializado em oncogenética.", {
+      .text("aos critérios internacionalmente reconhecidos (NCCN e ACMG), indicando que ele se beneficiaria de um encaminhamento para investigação em um serviço especializado em oncogenética.", {
         align: "justify",
       });
   } else {
@@ -112,9 +112,9 @@ export const generatePDF = (data, res) => {
       .font("Inter")
       .text("Com base nessas informações, ", { continued: true })
       .font("Inter-Bold")
-      .text("o paciente não atende", { continued: true })
+      .text("o paciente não atende ", { continued: true })
       .font("Inter")
-      .text(" aos critérios internacionalmente reconhecidos (NCCN e ACMG) para um encaminhamento para investigação em um serviço especializado em oncogenética.", {
+      .text("aos critérios internacionalmente reconhecidos (NCCN e ACMG) para um encaminhamento para investigação em um serviço especializado em oncogenética.", {
         align: "justify",
       });
   }
