@@ -19,7 +19,13 @@ app.use(
       "https://raizesteste.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
+    allowedHeaders: [
+      "Origin", 
+      "X-Requested-With", 
+      "Content-Type", 
+      "Accept",
+      "Authorization"  // Adicionando Authorization aos headers permitidos
+    ],
     credentials: true,
   }),
 )
