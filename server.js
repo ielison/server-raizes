@@ -1,10 +1,36 @@
 import express from "express"
-import fetch from "node-fetch" // Import ESM
+import fetch from "node-fetch"
 import cors from "cors"
 import { generatePDF } from "./pdfGenerator.js"
+import winston from "winston"
 
 const app = express()
-const port = 3000
+const port = process.env.PORT || 3000
+
+// Configuração do Winston otimizada para Render
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.printf(({ timestamp, level, message, ...meta }) => {
+      let logMessage = `[${timestamp}] ${level.toUpperCase()}: ${message}`
+
+      // Adiciona metadados se existirem
+      if (Object.keys(meta).length > 0) {
+        logMessage += ` | ${JSON.stringify(meta)}`
+      }
+
+      return logMessage
+    }),
+  ),
+  transports: [
+    new winston.transports.Console({
+      handleExceptions: true,
+      handleRejections: true,
+    }),
+  ],
+})
 
 // Middleware para interpretar JSON
 app.use(express.json())
@@ -19,38 +45,78 @@ app.use(
       "https://raizesteste.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: [
-      "Origin", 
-      "X-Requested-With", 
-      "Content-Type", 
-      "Accept",
-      "Authorization"  // Adicionando Authorization aos headers permitidos
-    ],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept"],
     credentials: true,
   }),
 )
 
+// Middleware de logging customizado para Render
+app.use((req, res, next) => {
+  const start = Date.now()
+
+  // Log da requisição recebida
+  logger.info("Requisição recebida", {
+    method: req.method,
+    url: req.url,
+    ip: req.ip,
+    userAgent: req.get("User-Agent"),
+    timestamp: new Date().toISOString(),
+  })
+
+  // Intercepta a resposta para logar quando terminar
+  const originalSend = res.send
+  res.send = function (data) {
+    const duration = Date.now() - start
+
+    logger.info("Resposta enviada", {
+      method: req.method,
+      url: req.url,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString(),
+    })
+
+    return originalSend.call(this, data)
+  }
+
+  next()
+})
+
 // Permitir requisições OPTIONS
-app.options("*", cors()) // Adicione esta linha
+app.options("*", cors())
 
 app.get("/teste", (req, res) => {
+  logger.info("Endpoint /teste acessado")
   res.send("Bem-vindo ao servidor de API")
 })
 
-// Função para fazer o ping
+// Health check endpoint específico para Render
+app.get("/health", (req, res) => {
+  logger.info("Health check realizado")
+  res.status(200).json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+  })
+})
+
+// Função para fazer o ping (ajustada para Render)
 const pingServer = () => {
-  const pingUrl = "https://testserver-2p40.onrender.com/teste" // URL correto para o ping
+  const pingUrl = process.env.RENDER_EXTERNAL_URL
+    ? `${process.env.RENDER_EXTERNAL_URL}/health`
+    : "https://testserver-2p40.onrender.com/teste"
 
   fetch(pingUrl)
     .then((res) => {
       if (res.ok) {
-        console.log("Ping bem-sucedido ao servidor.")
+        logger.info("Ping bem-sucedido", { url: pingUrl, status: res.status })
       } else {
-        console.log("Erro no ping ao servidor:", res.status)
+        logger.warn("Ping com status não-OK", { url: pingUrl, status: res.status })
       }
     })
     .catch((error) => {
-      console.error("Erro ao fazer o ping:", error)
+      logger.error("Erro no ping", { url: pingUrl, error: error.message })
     })
 }
 
@@ -62,9 +128,17 @@ pingServer()
 
 // Endpoint para registro de usuário
 app.post("/api/register", async (req, res) => {
-  console.log("Dados recebidos:", req.body)
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-  const apiUrl = "http://217.196.61.218:8080/v1/user/save-user"
+  logger.info("Iniciando registro de usuário", {
+    requestId,
+    email: req.body.email,
+    nome: req.body.nome,
+  })
+
+  const apiUrl = process.env.API_BASE_URL
+    ? `${process.env.API_BASE_URL}/user/save-user`
+    : "http://217.196.61.218:8080/v1/user/save-user"
 
   try {
     // Validação simples dos campos obrigatórios
@@ -72,13 +146,14 @@ app.post("/api/register", async (req, res) => {
 
     for (const field of requiredFields) {
       if (!req.body[field]) {
+        logger.warn("Campo obrigatório ausente", { requestId, field })
         return res.status(400).json({ error: `Campo ${field} é obrigatório.` })
       }
     }
 
     // Preparando o payload a ser enviado à API
     const payload = {
-      usuarioId: req.body.usuarioId || 0, // Supondo que 0 seja o padrão
+      usuarioId: req.body.usuarioId || 0,
       nome: req.body.nome,
       email: req.body.email,
       senha: req.body.senha,
@@ -89,12 +164,16 @@ app.post("/api/register", async (req, res) => {
       numeroRua: req.body.numeroRua,
       telefone: req.body.telefone,
       celular: req.body.celular,
-      profissionalDaSaude: Boolean(req.body.profissionalDaSaude), // Garantir que seja booleano
-      graduacao: req.body.graduacao || "", // Evitar null
-      receberEmail: Boolean(req.body.receberEmail), // Garantir que seja booleano
+      profissionalDaSaude: Boolean(req.body.profissionalDaSaude),
+      graduacao: req.body.graduacao || "",
+      receberEmail: Boolean(req.body.receberEmail),
     }
 
-    console.log("Payload enviado para a API:", JSON.stringify(payload, null, 2))
+    logger.info("Enviando dados para API externa", {
+      requestId,
+      apiUrl,
+      email: payload.email,
+    })
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -103,48 +182,67 @@ app.post("/api/register", async (req, res) => {
     })
 
     if (response.status === 204) {
-      return res.sendStatus(204) // Sucesso sem conteúdo
+      logger.info("Usuário registrado com sucesso", { requestId, status: 204 })
+      return res.sendStatus(204)
     }
 
     let data
     try {
       data = await response.json()
     } catch (jsonError) {
-      console.error("Erro ao parsear a resposta JSON:", jsonError)
+      logger.error("Erro ao parsear resposta JSON", {
+        requestId,
+        error: jsonError.message,
+      })
       data = { message: "Erro ao processar a resposta da API" }
     }
 
-    console.log("Response status:", response.status)
-    console.log("Response body:", await response.text())
+    logger.info("Resposta da API externa recebida", {
+      requestId,
+      status: response.status,
+    })
+
     res.status(response.status).json(data)
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro no registro de usuário", {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+    })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
 
 // Endpoint para login de usuário
 app.get("/api/login", async (req, res) => {
-  const { email, senha } = req.query // Obtemos os dados via query
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const { email, senha } = req.query
+
+  logger.info("Tentativa de login", { requestId, email })
 
   if (!email || !senha) {
+    logger.warn("Credenciais ausentes no login", { requestId })
     return res.status(400).json({ error: "Email e senha são obrigatórios." })
   }
 
-  const apiUrl = `http://217.196.61.218:8080/v1/user/login?email=${encodeURIComponent(
-    email,
-  )}&senha=${encodeURIComponent(senha)}`
+  const apiUrl = process.env.API_BASE_URL
+    ? `${process.env.API_BASE_URL}/user/login?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`
+    : `http://217.196.61.218:8080/v1/user/login?email=${encodeURIComponent(email)}&senha=${encodeURIComponent(senha)}`
 
   try {
     const response = await fetch(apiUrl, {
-      method: "GET", // Continua usando o método GET
+      method: "GET",
       headers: { "Content-Type": "application/json" },
     })
 
     const data = await response.json()
 
     if (response.status === 200 && data.result === true) {
-      console.log("Login bem-sucedido:", data)
+      logger.info("Login bem-sucedido", {
+        requestId,
+        email,
+        userId: data.idUser,
+      })
       return res.status(200).json({
         success: true,
         message: "Login realizado com sucesso",
@@ -153,33 +251,42 @@ app.get("/api/login", async (req, res) => {
       })
     }
 
-    console.error("Erro no login: result é falso.")
+    logger.warn("Login falhou", { requestId, email })
     return res.status(401).json({
       success: false,
       message: "Email ou senha incorretos",
     })
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro no processo de login", {
+      requestId,
+      email,
+      error: error.message,
+    })
     return res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
 
 // Endpoint para enviar dados do quiz
 app.post("/api/quiz", async (req, res) => {
-  console.log("Dados do quiz recebidos:", req.body)
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-  const apiUrl = "http://217.196.61.218:8080/v1/quiz" // Endpoint do backend
+  logger.info("Criando novo quiz", {
+    requestId,
+    idUser: req.body.idUser,
+    idQuiz: req.body.idQuiz,
+  })
+
+  const apiUrl = process.env.API_BASE_URL ? `${process.env.API_BASE_URL}/quiz` : "http://217.196.61.218:8080/v1/quiz"
 
   try {
-    // Validação simples dos campos obrigatórios, se necessário
     const requiredFields = ["idUser", "idQuiz", "usuariPrincipal"]
     for (const field of requiredFields) {
       if (!req.body[field]) {
+        logger.warn("Campo obrigatório ausente no quiz", { requestId, field })
         return res.status(400).json({ error: `Campo ${field} é obrigatório.` })
       }
     }
 
-    // Preparando o payload a ser enviado ao backend
     const payload = {
       idUser: req.body.idUser,
       idQuiz: req.body.idQuiz,
@@ -196,7 +303,7 @@ app.post("/api/quiz", async (req, res) => {
       outroFamiliarList: req.body.outroFamiliarList,
     }
 
-    console.log("Payload enviado para a API:", JSON.stringify(payload, null, 2))
+    logger.info("Enviando quiz para API externa", { requestId, apiUrl })
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -204,43 +311,56 @@ app.post("/api/quiz", async (req, res) => {
       body: JSON.stringify(payload),
     })
 
-    // Verificando se a resposta é 200 ou 201 (Created)
     if (response.status === 200 || response.status === 201) {
-      const responseBody = await response.json() // Captura a resposta como JSON
-      console.log("Resposta da API:", responseBody)
+      const responseBody = await response.json()
+      logger.info("Quiz criado com sucesso", {
+        requestId,
+        status: response.status,
+        message: responseBody.message,
+      })
 
-      // Verifica a mensagem de sucesso
       if (responseBody.message === "CRIADO COM SUCESSO") {
-        return res.status(200).json({ message: responseBody.message }) // Sucesso
+        return res.status(200).json({ message: responseBody.message })
       }
 
-      // Se a mensagem não for a esperada, retorna um erro
       return res.status(200).json(responseBody)
     }
 
-    // Se a resposta não for 200 ou 201
-    const errorData = await response.text() // Captura qualquer erro como texto
-    console.log("Erro ou resposta inesperada da API:", errorData)
+    const errorData = await response.text()
+    logger.error("Erro na criação do quiz", {
+      requestId,
+      status: response.status,
+      error: errorData,
+    })
     return res.status(response.status).json({ error: errorData })
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro no processo de criação do quiz", {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+    })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
 
 // Endpoint para ATUALIZAR dados do quiz (PUT)
 app.put("/api/quiz", async (req, res) => {
-  console.log("Dados de atualização do quiz recebidos:", req.body)
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-  const apiUrl = "http://217.196.61.218:8080/v1/quiz" // Endpoint do backend para PUT
+  logger.info("Atualizando quiz", {
+    requestId,
+    idUser: req.body.idUser,
+    idQuiz: req.body.idQuiz,
+  })
+
+  const apiUrl = process.env.API_BASE_URL ? `${process.env.API_BASE_URL}/quiz` : "http://217.196.61.218:8080/v1/quiz"
 
   try {
-    // Para atualização, o idQuiz é essencial.
     if (!req.body.idQuiz) {
+      logger.warn("idQuiz ausente na atualização", { requestId })
       return res.status(400).json({ error: "Campo idQuiz é obrigatório para atualização." })
     }
 
-    // Preparando o payload a ser enviado ao backend
     const payload = {
       idUser: req.body.idUser,
       idQuiz: req.body.idQuiz,
@@ -257,41 +377,51 @@ app.put("/api/quiz", async (req, res) => {
       outroFamiliarList: req.body.outroFamiliarList,
     }
 
-    console.log("Payload de atualização enviado para a API:", JSON.stringify(payload, null, 2))
+    logger.info("Enviando atualização para API externa", { requestId, apiUrl })
 
     const response = await fetch(apiUrl, {
-      method: "PUT", // Usando o método PUT
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
 
-    // A API externa pode responder com 200 (OK) ou 204 (No Content) para um PUT bem-sucedido.
     if (response.ok) {
-      // response.ok é true para status 200-299
       try {
-        // Tenta parsear como JSON, pode não haver corpo
         const responseBody = await response.json()
-        console.log("Resposta da API (PUT):", responseBody)
+        logger.info("Quiz atualizado com sucesso", {
+          requestId,
+          status: response.status,
+        })
         return res.status(response.status).json(responseBody)
       } catch (e) {
-        // Se não houver corpo na resposta (como em um 204)
-        console.log("Quiz atualizado com sucesso (sem conteúdo na resposta).")
+        logger.info("Quiz atualizado (sem conteúdo na resposta)", {
+          requestId,
+          status: response.status,
+        })
         return res.sendStatus(response.status)
       }
     } else {
       const errorData = await response.text()
-      console.log("Erro ou resposta inesperada da API (PUT):", errorData)
+      logger.error("Erro na atualização do quiz", {
+        requestId,
+        status: response.status,
+        error: errorData,
+      })
       return res.status(response.status).json({ error: errorData })
     }
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API (PUT):", error)
+    logger.error("Erro no processo de atualização do quiz", {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+    })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
 
-// GET para /api/quiz (retorna true se a resposta for 200 OK)
+// GET para /api/quiz
 app.get("/api/quiz", async (req, res) => {
-  const apiUrl = "http://217.196.61.218:8080/v1/quiz"
+  const apiUrl = process.env.API_BASE_URL ? `${process.env.API_BASE_URL}/quiz` : "http://217.196.61.218:8080/v1/quiz"
 
   try {
     const response = await fetch(apiUrl, {
@@ -300,20 +430,26 @@ app.get("/api/quiz", async (req, res) => {
     })
 
     if (response.status === 200) {
-      return res.status(200).json(true) // Retorna true se for 200 OK
+      return res.status(200).json(true)
     } else {
-      res.status(response.status).json(false) // Retorna false se não for 200
+      res.status(response.status).json(false)
     }
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro na verificação do quiz", { error: error.message })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
 
 // GET para buscar pacientes por idUser
 app.get("/api/quiz/getPacientes/:idUser", async (req, res) => {
-  const { idUser } = req.params // Pega o idUser dos parâmetros da rota
-  const apiUrl = `http://217.196.61.218:8080/v1/quiz/getPacientes/${idUser}`
+  const { idUser } = req.params
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  logger.info("Buscando pacientes", { requestId, idUser })
+
+  const apiUrl = process.env.API_BASE_URL
+    ? `${process.env.API_BASE_URL}/quiz/getPacientes/${idUser}`
+    : `http://217.196.61.218:8080/v1/quiz/getPacientes/${idUser}`
 
   try {
     const response = await fetch(apiUrl, {
@@ -322,15 +458,29 @@ app.get("/api/quiz/getPacientes/:idUser", async (req, res) => {
     })
 
     if (response.status === 200) {
-      const pacientes = await response.json() // Aguarda a resposta e converte para JSON
-      return res.status(200).json(pacientes) // Retorna a lista de pacientes no formato esperado
+      const pacientes = await response.json()
+      logger.info("Pacientes encontrados", {
+        requestId,
+        idUser,
+        count: pacientes.length,
+      })
+      return res.status(200).json(pacientes)
     } else {
+      logger.warn("Erro ao buscar pacientes", {
+        requestId,
+        idUser,
+        status: response.status,
+      })
       res.status(response.status).json({
         error: `Erro ao buscar pacientes: ${response.statusText}`,
       })
     }
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro na busca de pacientes", {
+      requestId,
+      idUser,
+      error: error.message,
+    })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
@@ -338,7 +488,13 @@ app.get("/api/quiz/getPacientes/:idUser", async (req, res) => {
 // Endpoint para obter os dados do quiz pelo idQuiz
 app.get("/api/quiz/:idQuiz", async (req, res) => {
   const { idQuiz } = req.params
-  const apiUrl = `http://217.196.61.218:8080/v1/quiz/getQuiz/${idQuiz}`
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  logger.info("Buscando dados do quiz", { requestId, idQuiz })
+
+  const apiUrl = process.env.API_BASE_URL
+    ? `${process.env.API_BASE_URL}/quiz/getQuiz/${idQuiz}`
+    : `http://217.196.61.218:8080/v1/quiz/getQuiz/${idQuiz}`
 
   try {
     const response = await fetch(apiUrl, {
@@ -347,14 +503,19 @@ app.get("/api/quiz/:idQuiz", async (req, res) => {
     })
 
     if (response.status === 200) {
-      const data = await response.json() // Obtenção dos dados se a resposta for 200 OK
-      console.log("Dados do quiz recebidos:", JSON.stringify(data, null, 2))
-      return res.status(200).json(data) // Retorna os dados do quiz
+      const data = await response.json()
+      logger.info("Dados do quiz encontrados", { requestId, idQuiz })
+      return res.status(200).json(data)
     } else {
+      logger.warn("Quiz não encontrado", { requestId, idQuiz, status: response.status })
       res.status(response.status).json({ error: "Quiz não encontrado" })
     }
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro na busca do quiz", {
+      requestId,
+      idQuiz,
+      error: error.message,
+    })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
@@ -362,7 +523,13 @@ app.get("/api/quiz/:idQuiz", async (req, res) => {
 // Endpoint para obter o resultado do quiz pelo idQuiz e idUser
 app.get("/api/quiz/resultado/:idQuiz/:idUser", async (req, res) => {
   const { idQuiz, idUser } = req.params
-  const apiUrl = `http://217.196.61.218:8080/v1/quiz/resultado/${idQuiz}/${idUser}`
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  logger.info("Buscando resultado do quiz", { requestId, idQuiz, idUser })
+
+  const apiUrl = process.env.API_BASE_URL
+    ? `${process.env.API_BASE_URL}/quiz/resultado/${idQuiz}/${idUser}`
+    : `http://217.196.61.218:8080/v1/quiz/resultado/${idQuiz}/${idUser}`
 
   try {
     const response = await fetch(apiUrl, {
@@ -371,33 +538,84 @@ app.get("/api/quiz/resultado/:idQuiz/:idUser", async (req, res) => {
     })
 
     if (response.status === 200) {
-      const result = await response.json() // Aguarda a resposta e converte para JSON
-      console.log("Resultado do quiz recebido:", JSON.stringify(result, null, 2))
-      return res.status(200).json(result) // Retorna o resultado do quiz
+      const result = await response.json()
+      logger.info("Resultado do quiz encontrado", { requestId, idQuiz, idUser })
+      return res.status(200).json(result)
     } else {
+      logger.warn("Resultado do quiz não encontrado", {
+        requestId,
+        idQuiz,
+        idUser,
+        status: response.status,
+      })
       res.status(response.status).json({
         error: `Erro ao buscar resultado do quiz: ${response.statusText}`,
       })
     }
   } catch (error) {
-    console.error("Erro ao fazer requisição para a API:", error)
+    logger.error("Erro na busca do resultado", {
+      requestId,
+      idQuiz,
+      idUser,
+      error: error.message,
+    })
     res.status(500).json({ error: "Erro ao fazer requisição para a API" })
   }
 })
 
-// Novo endpoint para geração de PDF
+// Endpoint para geração de PDF
 app.post("/generatepdf", (req, res) => {
-  console.log("requisição feita")
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   const { nome, idade, historicoPessoal, familiares, precisaPesquisaOncogenetica } = req.body
 
+  logger.info("Gerando PDF", { requestId, nome, idade })
+
   if (!nome || !idade || !historicoPessoal || !familiares) {
+    logger.warn("Dados incompletos para PDF", { requestId })
     return res.status(400).json({ error: "Dados incompletos." })
   }
 
-  generatePDF(req.body, res) // Gera o PDF usando o gerador
+  try {
+    generatePDF(req.body, res)
+    logger.info("PDF gerado com sucesso", { requestId, nome })
+  } catch (error) {
+    logger.error("Erro na geração do PDF", {
+      requestId,
+      nome,
+      error: error.message,
+    })
+    res.status(500).json({ error: "Erro ao gerar PDF" })
+  }
+})
+
+// Middleware de tratamento de erros global
+app.use((error, req, res, next) => {
+  logger.error("Erro não tratado", {
+    error: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method,
+  })
+
+  res.status(500).json({ error: "Erro interno do servidor" })
 })
 
 // Iniciar o servidor
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`)
+  logger.info(`Servidor iniciado com sucesso`, {
+    port,
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Tratamento de sinais para shutdown graceful
+process.on("SIGTERM", () => {
+  logger.info("Recebido SIGTERM, encerrando servidor graciosamente")
+  process.exit(0)
+})
+
+process.on("SIGINT", () => {
+  logger.info("Recebido SIGINT, encerrando servidor graciosamente")
+  process.exit(0)
 })
