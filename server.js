@@ -120,8 +120,8 @@ const pingServer = () => {
     })
 }
 
-// Iniciar o ping a cada 30 minutos (1800000 ms)
-setInterval(pingServer, 1800000)
+// Iniciar o ping a cada 15 minutos (900000 ms)
+setInterval(pingServer, 900000)
 
 // Fazer um ping inicial ao iniciar o servidor
 pingServer()
